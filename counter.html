@@ -1,0 +1,9 @@
+<!DOCTYPE html>
+<span id="total">0</span>
+<button onclick="update()">Count</button>
+<script>
+const total = document.getElementById('total');
+function update() {
+  total.innerText = Number(total.innerText) + 1;
+}
+</script>

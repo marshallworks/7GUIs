@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<style>
+body {
+  display: grid;
+  grid-template:
+    "search search" 30px
+    "list input" 320px
+    "buttons buttons" 30px / auto 280px;
+}
+ul {
+  border: 1px solid black;
+  list-style: none;
+  margin: 16px;
+  padding: 8px;
+}
+li {
+  cursor: pointer;
+}
+li.selected {
+  background: aquamarine;
+}
+label {
+  display: block;
+  padding: 8px;
+}
+label[for="prefix"] {
+  grid-area: search;
+}
+ul {
+  grid-area: list;
+}
+form {
+  grid-area: input;
+  padding: 8px;
+}
+.buttons {
+  grid-area: buttons;
+}
+</style>
+<label for="prefix">
+  Filter prefix:
+  <input id="prefix" type="search" oninput="updateList()" />
+</label>
+<ul id="entries" onclick="clearSelected()"></ul>
+<form>
+<label for="name">
+  Name:
+ <input id="name" type="text" />
+</label>
+<label for="surname">
+  Surname:
+ <input id="surname" type="text" />
+</label>
+</form>
+<div class="buttons">
+  <button id="create" onclick="create()">Create</button>
+  <button id="update" onclick="updateSelected()">Update</button>
+  <button id="delete" onclick="deleteSelected()">Delete</button>
+</div>
+<script>
+const prefixSearch = document.getElementById('prefix');
+const entryList = document.getElementById('entries');
+const nameInput = document.getElementById('name');
+const surnameInput = document.getElementById('surname');
+const updateButton = document.getElementById('update');
+const deleteButton = document.getElementById('delete');
+
+let selected = -1;
+const entries = [['Emil', 'Hans'], ['Musterman', 'Max'], ['Tisch', 'Roman']];
+
+function updateList() {
+  const prefix = prefixSearch.value.toLowerCase();
+  entryList.innerText = '';
+  updateButton.disabled = selected >= 0 ? undefined : 'disabled';
+  deleteButton.disabled = selected >= 0 ? undefined : 'disabled';
+  for (const [index, entry] of entries.entries()) {
+    if (!entry[0].toLowerCase().startsWith(prefix)) continue;
+    const item = document.createElement('li');
+    item.className = index === selected ? 'selected' : '';
+    item.innerText = entry.join(', ');
+    item.addEventListener('click', (e) => {
+      e.stopPropagation();
+      selected = index;
+      nameInput.value = entries[index][1];
+      surnameInput.value = entries[index][0];
+      updateList();
+    });
+    entryList.appendChild(item);
+  }
+}
+
+function clearSelected() {
+  selected = -1;
+  nameInput.value = '';
+  surnameInput.value = '';
+  updateList();
+}
+
+function create() {
+  entries.push([surnameInput.value.trim(), nameInput.value.trim()]);
+  selected = entries.length - 1;
+  updateList();
+}
+
+function updateSelected() {
+  if (selected < 0 || selected >= entries.length) return;
+  entries[selected] = [surnameInput.value.trim(), nameInput.value.trim()];
+  updateList();
+}
+
+function deleteSelected() {
+  if (selected < 0 || selected >= entries.length) return;
+  entries.splice(selected, 1);
+  clearSelected();
+}
+
+updateList();
+
+</script>

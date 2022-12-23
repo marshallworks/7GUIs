@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<label for="progress">
+  Elapsed Time: <progress id="progress" max="1" value="0" />
+</label><br />
+<span id="elapsed">0s</span><br />
+<label for="duration">
+  Duration: <input id="duration" type="range" min="0.1" max="10" step="any" value="0.1" />
+</label><br />
+<button onmousedown="start()">Reset</button>
+<script>
+const progress = document.getElementById('progress');
+const elapsedSpan = document.getElementById('elapsed');
+const durationInput = document.getElementById('duration');
+let timeoutId = null;
+
+function update(startTime) {
+  const elapsed = (performance.now() - startTime) / 1000;
+  const duration = Number(durationInput.value);
+  progress.value = elapsed / duration;
+  elapsedSpan.innerText = `${elapsed.toFixed(1)}s`;
+  if (elapsed < duration) {
+    timeoutId = setTimeout(() => {
+      update(startTime);
+    }, 16);
+  } else {
+    timeoutId = null;
+  }
+}
+
+function start() {
+  if (timeoutId !== null) clearTimeout(timeoutId);
+  update(performance.now());
+}
+</script>

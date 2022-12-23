@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<button id="undo" onmousedown="undo()">Undo</button>
+<button id="redo" onmousedown="redo()">Redo</button>
+<br />
+<canvas id="canvas"
+        width="480"
+        height="320"
+        style="border: 1px solid #000;"
+        onmousedown="selectCreate(event)"
+        oncontextmenu="return false"
+></canvas>
+<dialog id="diameter-dialog">
+  <label for="diameter">
+    Adjust diameter of circle at (<span id="coord"></span>).<br />
+    <input type="range" id="diameter" min="10" max="400" value="20" oninput="updateDiameter()" />
+  </label>
+</dialog>
+<script>
+const diameterDialog = document.getElementById('diameter-dialog');
+const diameterInput = document.getElementById('diameter');
+const diameterCoor = document.getElementById('coord');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+let actionIndex = -1;
+const actions = [];
+
+function coorDistance(a, b) {
+  const xDiff = a.x - b.x;
+  const yDiff = a.y - b.y;
+  return Math.sqrt((xDiff*xDiff) + (yDiff*yDiff));
+}
+
+function getCircles() {
+  const circlesMap = new Map();
+  let selected = '';
+  for (let i = 0; i <= actionIndex; ++i) {
+    const action = actions[i];
+    const key = `${action.x}:${action.y}`;
+    const circle = {
+      x: action.x,
+      y: action.y,
+      d: action.d,
+      s: false
+    };
+    if (action.s) selected = key;
+    circlesMap.set(key, circle);
+  }
+  if (selected) {
+    circlesMap.get(selected).s = true;
+  }
+  return [...circlesMap.values()];
+}
+
+function getSelected() {
+  return getCircles().find(c => c.s);
+}
+
+function getHit(coor) {
+  let minDistance = Infinity;
+  let selected = null;
+  for (const circle of getCircles()) {
+    const distance = coorDistance(circle, coor);
+    if (distance < 0.5 * circle.d && distance < minDistance) {
+      minDistance = distance;
+      selected = circle;
+    }
+  }
+  return selected;
+}
+
+function draw() {
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, 480, 320);
+  ctx.fillStyle = '#aaa';
+  ctx.strokeStyle = '#000';
+  for (const circle of getCircles()) {
+    ctx.beginPath();
+    ctx.arc(circle.x, circle.y, 0.5 * circle.d, 0, 2*Math.PI);
+    ctx.stroke();
+    if (circle.s) ctx.fill();
+  }
+}
+
+function addAction(action) {
+  actions[++actionIndex] = action;
+  actions.splice(actionIndex + 1);
+  draw();
+}
+
+function updateAction(action, props) {
+  for (const [key, value] of Object.entries(props)) {
+    action[key] = value;
+  }
+  draw();
+}
+
+function updateDiameter() {
+  const selected = getSelected();
+  const action = actions[actionIndex];
+  const d = Number(diameterInput.value);
+  if (selected.x === action.x &&
+      selected.y === action.y) {
+    updateAction(action, {d});
+  } else {
+    addAction({x: selected.x, y: selected.y, d});
+  }
+}
+
+function selectCreate(event) {
+  diameterDialog.close();
+  const selected = getHit({x: event.offsetX, y: event.offsetY});
+  if (selected) {
+    addAction({x: selected.x, y: selected.y, d: selected.d, s: true});
+  }
+  if (event.button === 0 && !selected) {
+    addAction({x: event.offsetX, y: event.offsetY, d: 20, s: true});
+  } else if (event.button === 2 && selected) {
+    diameterCoor.innerText = `${selected.x}, ${selected.y}`;
+    diameterInput.value = selected.d;
+    diameterDialog.show();
+  }
+}
+
+function undo() {
+  diameterDialog.close();
+  actionIndex = Math.max(-1, actionIndex - 1);
+  draw();
+}
+
+function redo() {
+  diameterDialog.close();
+  actionIndex = Math.min(actionIndex + 1, actions.length - 1);
+  draw();
+}
+</script>

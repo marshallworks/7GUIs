@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<style>
+input:invalid {
+  background-color: #f00;
+}
+</style>
+<select id="one-two-way" oninput="updateState()">
+  <option value="one-way">one-way flight</option>
+  <option value="return">return flight</option>
+</select><br>
+<input id="startInput" type="date" oninput="updateState()" /><br>
+<input id="returnInput" type="date" oninput="updateState()" /><br>
+<button id="book" onclick="book()">Book</button>
+<script>
+const oneTwoWay = document.getElementById('one-two-way');
+const startInput = document.getElementById('startInput');
+const returnInput = document.getElementById('returnInput');
+const bookButton = document.getElementById('book');
+
+function getDateString(date) { return date.toISOString().split('T')[0]; }
+
+function updateState() {
+  const isOneWay = oneTwoWay.value === 'one-way';
+  const departureDate = startInput.value ? new Date(startInput.value) : new Date();
+  let returnDate = returnInput.value ? new Date(returnInput.value) : new Date();
+
+  startInput.setCustomValidity('');
+  returnInput.disabled = undefined;
+  bookButton.disabled = undefined;
+
+  if (isOneWay) {
+    returnInput.disabled = 'disabled';
+    returnDate = departureDate;
+  } else {
+    if (returnDate < departureDate) {
+      bookButton.disabled = 'disabled';
+      startInput.setCustomValidity('Departure date must be before return date.');
+    }
+  }
+
+  startInput.value = getDateString(departureDate);
+  returnInput.value = getDateString(returnDate);
+}
+
+function book() {
+  if (oneTwoWay.value === 'one-way') {
+    alert(`You booked a one-way flight on ${startInput.value}.`);
+  } else {
+    alert(`You booked a return flight on ${startInput.value} to ${returnInput.value}.`);
+  }
+}
+
+updateState();
+</script>

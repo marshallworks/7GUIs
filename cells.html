@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<style>
+table { border-collapse: collapse; }
+td { border: 1px solid #000; }
+td:first-child { border: 0; font-weight: bold; }
+</style>
+<table id="table"></table>
+<script>
+const table = document.getElementById('table');
+const elements = new Map();
+const parsed = new Map();
+const ZERO = '0'.charCodeAt(0);
+const NINE = '9'.charCodeAt(0);
+const A = 'A'.charCodeAt(0);
+const Z = 'Z'.charCodeAt(0);
+
+function isDigit(code) { return (code >= ZERO && code <= NINE); }
+
+function mayBeColumn(code) { return (code >= A && code <= Z); }
+
+function mayBeCoor(raw) {
+  if (raw.length < 2 || raw.length > 3) return false;
+  if (!mayBeColumn(raw.charCodeAt(0))) return false;
+  for (let i = 1; i < raw.length; ++i) {
+    if (!isDigit(raw.charCodeAt(i))) return false;
+  }
+  return true;
+}
+
+function numCoor(coor) { return [coor.charCodeAt(0), Number(coor.substring(1))]; }
+
+function tokenize(raw) {
+  const tokens = [];
+  let acc = '';
+  for (let i = 0; i < raw.length; ++i) {
+    const char = raw.charAt(i);
+    if (char === ' ') {
+      if (acc) {
+        tokens.push(acc.slice());
+        acc = '';
+      }
+    } else if (char === '(') {
+      tokens.push(acc.slice() + '(');
+      acc = '';
+    } else if (char === ')' || char === ',') {
+      if (acc) tokens.push(acc.slice());
+      tokens.push(char);
+      acc = '';
+    } else {
+      acc += char;
+    }
+  }
+  if (acc) tokens.push(acc);
+  return tokens;
+}
+
+function tree(tokens, start) {
+  const nodes = [];
+  for (let i = start || 0; i < tokens.length; ++i) {
+    const token = tokens[i];
+    if (token === ')') {
+      return [nodes, i];
+    }
+    if (token.endsWith('(')) {
+      const [children, index] = tree(tokens, i + 1);
+      nodes.push({op: token.slice(0, -1), children});
+      i = index;
+    } else if (token.indexOf(':') > -1) {
+      const [start, end] = token.split(':');
+      if (mayBeCoor(start) && mayBeCoor(end)) {
+        nodes.push({start, end});
+      }
+    } else if (mayBeCoor(token)) {
+      nodes.push({coor: token});
+    } else if (!isNaN(Number(token))) {
+      nodes.push({num: Number(token)});
+    }
+  }
+  return nodes;
+}
+
+function parse(raw) {
+  if (raw.startsWith('=')) {
+    const tokens = tokenize(raw.substring(1));
+    const nodes = tree(tokens);
+    if (nodes.length === 1) {
+      return nodes[0];
+    }
+  } else if (!isNaN(Number(raw))) {
+    return {num: Number(raw)};
+  }
+  return {text: raw};
+}
+
+function eval(parse) {
+  if (parse.text) {
+    return parse.text;
+  } else if (parse.num) {
+    return parse.num;
+  } else if (parse.coor) {
+    const cell = parsed.get(parse.coor);
+    if (!cell) return 0;
+    return eval(cell);
+  } else if (parse.start && parse.end) {
+    const items = [];
+    const [startC, startR] = numCoor(parse.start);
+    const [endC, endR] = numCoor(parse.end);
+    for (let r = startR; r < endR + 1; ++r) {
+      for (let c = startC; c < endC + 1; ++c) {
+        const key = `${String.fromCharCode(c)}${r}`;
+        const cell = parsed.get(key);
+        if (cell) items.push(eval(cell));
+      }
+    }
+    return items;
+  } else if (parse.op) {
+    let args = [];
+    for (const child of parse.children) {
+      const childEval = eval(child);
+      args = args.concat(childEval.length ? childEval : [childEval]);
+    }
+    const a = args[0] || 0;
+    const b = args[1] || 0;
+    if (parse.op === 'add') return a + b;
+    if (parse.op === 'sub') return a - b;
+    if (parse.op === 'div') return a / b;
+    if (parse.op === 'mul') return a * b;
+    if (parse.op === 'mod') return a % b;
+    if (parse.op === 'sum') return args.reduce((acc, v) => acc + v, 0);
+    if (parse.op === 'prod') return args.reduce((acc, v) => acc * v, 1)
+  }
+  return 'error';
+}
+
+function evalForKey(key) {
+  if (!elements.has(key)) return '';
+  parsed.set(key, parse(elements.get(key).raw));
+  return eval(parsed.get(key));
+}
+
+function isDependent(key, parse) {
+  let nodes = [parse];
+  while (nodes.length) {
+    let next = [];
+    for (const node of nodes) {
+      if (node.coor === key) return true;
+      if (node.start && node.end) {
+        const [keyC, keyR] = numCoor(key);
+        const [startC, startR] = numCoor(node.start);
+        const [endC, endR] = numCoor(node.end);
+        const inRange = (keyC >= startC && keyC <= endC &&
+                         keyR >= startR && keyR <= endR);
+        if (inRange) return true;
+      }
+      if (node.children) {
+        next = next.concat(node.children);
+      }
+    }
+    nodes = next;
+  }
+  return false;
+}
+
+function updateDependents(key) {
+  for (const [dep, parse] of parsed.entries()) {
+    if (dep === key) continue;
+    if (isDependent(key, parse)) {
+      const element = elements.get(dep);
+      if (!element) continue;
+      element.td.innerText = evalForKey(dep);
+      updateDependents(dep);
+    }
+  }
+}
+
+function createTable() {
+  table.innerText = '';
+  const hr = document.createElement('tr');
+  hr.appendChild(document.createElement('th'));
+  for (let c = A; c <= Z; ++c) {
+    const th = document.createElement('th');
+    th.innerText = String.fromCharCode(c);
+    th.width = 128;
+    hr.appendChild(th);
+  }
+  table.appendChild(hr);
+  for (let row = 0; row < 100; ++row) {
+    const tr = document.createElement('tr');
+    const rowLabel = document.createElement('td');
+    rowLabel.innerText = row;
+    tr.appendChild(rowLabel);
+    for (let c = A; c <= Z; ++c) {
+      const key = `${String.fromCharCode(c)}${row}`;
+      const td = document.createElement('td');
+      td.contentEditable = true;
+      td.addEventListener('focus', () => {
+        td.innerText = elements.has(key) ? elements.get(key).raw : '';
+      });
+      td.addEventListener('blur', () => {
+        td.innerText = evalForKey(key);
+        updateDependents(key);
+      });
+      td.addEventListener('input', () => {
+        if (td.innerText) {
+          elements.set(key, {td, raw: td.innerText});
+        } else {
+          elements.delete(key);
+        }
+      });
+      tr.appendChild(td);
+    }
+    table.appendChild(tr);
+  }
+}
+createTable();
+</script>

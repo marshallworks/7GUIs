@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<label for="celsius">
+ <input id="celsius" type="number" oninput="updateC()" /> Celsius
+</label> = <label for="fahrenheit">
+ <input id="fahrenheit" type="number" oninput="updateF()" /> Fahrenheit
+</label>
+<script>
+const celsius = document.getElementById('celsius');
+const fahrenheit = document.getElementById('fahrenheit');
+function updateC() {
+  fahrenheit.value = (Number(celsius.value) * (9/5) + 32).toFixed(1);
+}
+function updateF() {
+  celsius.value = ((Number(fahrenheit.value) - 32) * (5/9)).toFixed(1);
+}
+</script>
